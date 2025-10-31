@@ -1,0 +1,41 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+.env
+
+# Flutter
+frontend/school_app/.dart_tool/
+frontend/school_app/.flutter-plugins
+frontend/school_app/.flutter-plugins-dependencies
+frontend/school_app/.packages
+frontend/school_app/.pub-cache/
+frontend/school_app/.pub/
+frontend/school_app/build/
+frontend/school_app/android/app/debug/
+frontend/school_app/android/app/profile/
+frontend/school_app/android/app/release/
+frontend/school_app/ios/Flutter/.last_build_id
+frontend/school_app/ios/Pods/
+frontend/school_app/ios/.symlinks/
+frontend/school_app/.fvm/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# OS
+Thumbs.db
