@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   // Your computer's IP address: 192.168.31.75
   static const String baseUrl = 'http://192.168.31.75:3000/api';
-  static const String tokenKey = 'auth_token';
+  static const String tokenKey = 'token'; // Changed from 'auth_token' to match ApiService
 
   Future<Map<String, dynamic>> login(String email, String password, String role) async {
     try {
@@ -35,7 +35,14 @@ class AuthService {
         final data = json.decode(response.body);
         print('✅ Login successful!');
         // Store the token
-        await _saveToken(data['token']);
+        final token = data['token'];
+        print('💾 Saving token with key "$tokenKey": ${token.substring(0, 20)}...');
+        await _saveToken(token);
+        // Store user info including role
+        if (data['user'] != null) {
+          await _saveUserInfo(data['user']);
+        }
+        print('✅ Token saved successfully');
         return data;
       } else {
         final error = json.decode(response.body);
@@ -93,5 +100,31 @@ class AuthService {
   Future<void> _removeToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(tokenKey);
+    await prefs.remove('user_info'); // Also remove user info
+  }
+
+  // User info management
+  Future<void> _saveUserInfo(Map<String, dynamic> userInfo) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_info', json.encode(userInfo));
+  }
+
+  static Future<Map<String, dynamic>?> getUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userInfoStr = prefs.getString('user_info');
+    if (userInfoStr != null) {
+      return json.decode(userInfoStr);
+    }
+    return null;
+  }
+
+  static Future<String?> getUserRole() async {
+    final userInfo = await getUserInfo();
+    return userInfo?['role'];
+  }
+
+  static Future<bool> isAdmin() async {
+    final role = await getUserRole();
+    return role == 'Admin';
   }
 }

@@ -1,118 +1,49 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const User = require('../models/User');
 
-// Login controller
+const generateToken = (userId, role) => {
+  return jwt.sign({ id: userId, role }, process.env.JWT_SECRET || 'your-secret-key', { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+};
+
 exports.login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
-
-    // Validate input
-    if (!email || !password || !role) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
-    }
-
-    // Find user
-    const user = await User.findOne({ email, role });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber
-      }
-    });
+    if (!email || !password || !role) return res.status(400).json({ message: 'Please provide email, password, and role' });
+    const user = await User.findOne({ where: { email, role } });
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) return res.status(401).json({ message: 'Invalid credentials' });
+    if (user.status !== 'active') return res.status(403).json({ message: 'Account is inactive' });
+    const token = generateToken(user.id, user.role);
+    res.json({ message: 'Login successful', token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Register controller
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, phoneNumber } = req.body;
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    // Create new user
-    const user = new User({
-      name,
-      email,
-      password,
-      role,
-      phoneNumber
-    });
-
-    await user.save();
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-
-    res.status(201).json({
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber
-      }
-    });
+    const { name, email, password, role, phone, address } = req.body;
+    if (!name || !email || !password || !role) return res.status(400).json({ message: 'Please provide name, email, password, and role' });
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) return res.status(400).json({ message: 'Email already registered' });
+    const user = await User.create({ name, email, password, role, phone, address });
+    const token = generateToken(user.id, user.role);
+    res.status(201).json({ message: 'User registered successfully', token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Change password controller
-exports.changePassword = async (req, res) => {
+exports.getCurrentUser = async (req, res) => {
   try {
-    const { oldPassword, newPassword } = req.body;
-    const userId = req.user.userId;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isMatch = await user.comparePassword(oldPassword);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
-    }
-
-    user.password = newPassword;
-    await user.save();
-
-    res.json({ message: 'Password updated successfully' });
+    const user = await User.findByPk(req.user.id, { attributes: { exclude: ['password'] } });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ user });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get current user error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
